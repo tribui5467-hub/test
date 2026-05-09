@@ -1,84 +1,74 @@
-# I will create a robust, single-file HTML/CSS/JS chess game with a dark aesthetic, 
-# smooth animations (gliding), evaluation icons, and a basic AI.
-
-chess_game_code = """
 <!DOCTYPE html>
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>Dark Aesthetic Chess</title>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js'></script>
+    <title>Midnight Gold Chess Engine</title>
+    <script src='https://cloudflare.com'></script>
     <style>
         :root {
-            --bg-color: #161512;
-            --board-dark: #769656;
-            --board-light: #eeeed2;
-            --accent: #262421;
-            --text: #bababa;
-            --eval-excellent: #95bb4a;
-            --eval-good: #81b64c;
-            --eval-inaccuracy: #f0c15c;
-            --eval-mistake: #e58f2a;
-            --eval-blunder: #fa412d;
-            --eval-best: #96bc4b;
+            --bg-deep: #0a0a0a;
+            --panel: #1a1a1a;
+            --gold: #d4af37;
+            --white-piece: #ffffff;
+            --black-piece: #ff4d4d; /* High visibility red/black hybrid */
+            --sq-light: #2c2c2c;
+            --sq-dark: #121212;
+            --accent: #96bc4b;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-deep);
+            color: #e0e0e0;
+            font-family: 'Inter', sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
             margin: 0;
-            overflow: hidden;
         }
 
         #game-container {
             display: flex;
-            gap: 20px;
-            padding: 20px;
-            background: var(--accent);
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: var(--panel);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            border: 1px solid #333;
         }
 
         #board {
             display: grid;
-            grid-template-columns: repeat(8, 60px);
-            grid-template-rows: repeat(8, 60px);
-            border: 5px solid #312e2b;
+            grid-template-columns: repeat(8, 75px);
+            grid-template-rows: repeat(8, 75px);
+            border: 8px solid #000;
             position: relative;
-            user-select: none;
         }
 
         .square {
-            width: 60px;
-            height: 60px;
+            width: 75px;
+            height: 75px;
             display: flex;
             justify-content: center;
             align-items: center;
             position: relative;
         }
 
-        .dark { background-color: #769656; }
-        .light { background-color: #eeeed2; }
+        .light { background: var(--sq-light); }
+        .dark { background: var(--sq-dark); }
 
         .piece {
-            width: 50px;
-            height: 50px;
-            cursor: grab;
+            font-size: 55px;
+            cursor: pointer;
             z-index: 10;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: absolute;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5));
+            user-select: none;
         }
 
-        .piece:active { cursor: grabbing; }
+        /* Fixed Visibility: Outline for pieces on same-color squares */
+        .w-piece { color: var(--white-piece); text-shadow: 0 0 10px rgba(0,0,0,1); }
+        .b-piece { color: var(--black-piece); text-shadow: 0 0 10px rgba(0,0,0,1); }
 
-        /* Evaluation Icons */
         .eval-icon {
             position: absolute;
             top: -10px;
@@ -91,186 +81,173 @@ chess_game_code = """
             justify-content: center;
             font-weight: bold;
             font-size: 14px;
-            color: white;
-            z-index: 20;
-            animation: expandIcon 0.4s ease-out;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 100;
+            animation: expand 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
         }
 
-        @keyframes expandIcon {
-            0% { transform: scale(0); opacity: 0; }
-            70% { transform: scale(1.2); }
-            100% { transform: scale(1); opacity: 1; }
-        }
+        @keyframes expand { from { transform: scale(0); } to { transform: scale(1); } }
 
-        .icon-best { background: var(--eval-best); }
-        .icon-excellent { background: var(--eval-excellent); }
-        .icon-blunder { background: var(--eval-blunder); }
+        .best { background: #96bc4b; color: white; } /* Chess.com Star */
+        .blunder { background: #fa412d; color: white; } /* Chess.com ?? */
 
-        /* Smooth UI Panels */
-        #ui-panel {
-            width: 200px;
+        #controls {
+            margin-left: 40px;
+            width: 220px;
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
 
-        .status-box {
-            padding: 15px;
-            background: #2b2925;
-            border-radius: 5px;
-            transition: height 0.5s ease;
-        }
-
-        button {
-            background: #45423e;
-            border: none;
+        select, button {
+            padding: 12px;
+            background: #333;
             color: white;
-            padding: 10px;
-            border-radius: 4px;
+            border: 1px solid #444;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s;
+            font-size: 1rem;
         }
 
-        button:hover { background: #5a5752; }
-
-        .highlight-last-move { background-color: rgba(255, 255, 0, 0.3) !important; }
+        button:hover { background: var(--gold); color: black; }
     </style>
 </head>
 <body>
 
-<div id='game-container'>
-    <div id='board'></div>
-    <div id='ui-panel'>
-        <div class='status-box' id='status'>White to move</div>
-        <button onclick='resetGame()'>New Game</button>
-        <div id='move-history' style='font-size: 0.8em; overflow-y: auto; max-height: 200px;'></div>
+<div id="game-container">
+    <div id="board"></div>
+    <div id="controls">
+        <h2 style="color: var(--gold); margin-top:0;">Abyssal Chess</h2>
+        <label>AI Tier:</label>
+        <select id="difficulty">
+            <option value="1">Tier 1: Novice</option>
+            <option value="2">Tier 2: Intermediate</option>
+            <option value="3" selected>Tier 3: Advanced (Sacrifice Logic)</option>
+        </select>
+        <div id="status">White's Turn</div>
+        <button onclick="newGame()">Reset Board</button>
     </div>
 </div>
 
 <script>
-    const boardEl = document.getElementById('board');
-    const statusEl = document.getElementById('status');
     const game = new Chess();
-    let selectedSquare = null;
+    const boardEl = document.getElementById('board');
+    const piecesMap = {'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'P': '♟', 'R': '♜', 'N': '♞', 'B': '♝', 'Q': '♛', 'K': '♚'};
 
-    // Piece Unicode mapping
-    const pieces = {
-        'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
-        'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
-    };
+    let selectedSq = null;
 
-    function createBoard() {
+    function init() {
         boardEl.innerHTML = '';
         for (let i = 0; i < 64; i++) {
-            const square = document.createElement('div');
-            const row = Math.floor(i / 8);
-            const col = i % 8;
-            square.classList.add('square');
-            square.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
-            square.dataset.pos = String.fromCharCode(97 + col) + (8 - row);
-            square.onclick = () => handleSquareClick(square.dataset.pos);
-            boardEl.appendChild(square);
+            const r = Math.floor(i / 8), c = i % 8;
+            const pos = String.fromCharCode(97 + c) + (8 - r);
+            const sq = document.createElement('div');
+            sq.className = `square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
+            sq.dataset.pos = pos;
+            sq.onclick = () => handleSquareClick(pos);
+            boardEl.appendChild(sq);
         }
-        updateBoard();
+        render();
     }
 
-    function updateBoard() {
-        const squares = document.querySelectorAll('.square');
-        squares.forEach(sq => {
-            const pos = sq.dataset.pos;
-            const piece = game.get(pos);
+    function render() {
+        document.querySelectorAll('.square').forEach(sq => {
+            const p = game.get(sq.dataset.pos);
             sq.innerHTML = '';
-            if (piece) {
-                const pEl = document.createElement('div');
-                pEl.className = 'piece';
-                pEl.innerText = pieces[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
-                pEl.style.color = piece.color === 'w' ? '#fff' : '#000';
-                pEl.style.fontSize = '45px';
-                sq.appendChild(pEl);
+            if (p) {
+                const div = document.createElement('div');
+                div.className = `piece ${p.color === 'w' ? 'w-piece' : 'b-piece'}`;
+                div.innerText = piecesMap[p.type.toUpperCase()];
+                sq.appendChild(div);
             }
         });
-        
-        statusEl.innerText = game.in_checkmate() ? 'Checkmate!' : 
-                           game.in_draw() ? 'Draw!' : 
-                           (game.turn() === 'w' ? 'White' : 'Black') + ' to move';
+        document.getElementById('status').innerText = game.turn() === 'w' ? "White to move" : "AI is thinking...";
     }
 
     function handleSquareClick(pos) {
-        if (selectedSquare === pos) {
-            selectedSquare = null;
-            renderHighlights();
-            return;
-        }
+        if (game.turn() !== 'w') return;
+        if (selectedSq === pos) { selectedSq = null; return; }
 
-        const move = game.move({ from: selectedSquare, to: pos, promotion: 'q' });
-
+        const move = game.move({ from: selectedSq, to: pos, promotion: 'q' });
         if (move) {
-            selectedSquare = null;
-            animateMove(move);
-            showEvalIcon(pos, move);
-            setTimeout(makeAiMove, 600);
+            selectedSq = null;
+            render();
+            showEval(pos, move);
+            setTimeout(aiTurn, 500);
         } else {
-            const piece = game.get(pos);
-            if (piece && piece.color === game.turn()) {
-                selectedSquare = pos;
+            const p = game.get(pos);
+            if (p && p.color === 'w') selectedSq = pos;
+        }
+    }
+
+    // --- AI LOGIC (MINIMAX + PIECE VALUES) ---
+    const values = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
+
+    function evaluateBoard(g) {
+        let total = 0;
+        g.board().forEach(row => {
+            row.forEach(p => {
+                if (p) total += (p.color === 'w' ? -values[p.type] : values[p.type]);
+            });
+        });
+        return total;
+    }
+
+    function minimax(g, depth, isMax, alpha, beta) {
+        if (depth === 0) return evaluateBoard(g);
+        const moves = g.moves();
+        if (isMax) {
+            let best = -9999;
+            for (let m of moves) {
+                g.move(m);
+                best = Math.max(best, minimax(g, depth - 1, !isMax, alpha, beta));
+                g.undo();
+                alpha = Math.max(alpha, best);
+                if (beta <= alpha) break;
             }
-        }
-        renderHighlights();
-    }
-
-    function animateMove(move) {
-        // Simple gliding logic simulation by re-rendering
-        updateBoard();
-    }
-
-    function showEvalIcon(pos, move) {
-        // Fake evaluation logic for aesthetic (chess.com style)
-        const square = document.querySelector(`[data-pos='${pos}']`);
-        const icon = document.createElement('div');
-        icon.className = 'eval-icon';
-        
-        const rand = Math.random();
-        if (rand > 0.8) {
-            icon.classList.add('icon-best');
-            icon.innerHTML = '★';
-        } else if (rand > 0.4) {
-            icon.classList.add('icon-excellent');
-            icon.innerHTML = '!!';
+            return best;
         } else {
-            icon.classList.add('icon-blunder');
-            icon.innerHTML = '??';
+            let best = 9999;
+            for (let m of moves) {
+                g.move(m);
+                best = Math.min(best, minimax(g, depth - 1, !isMax, alpha, beta));
+                g.undo();
+                beta = Math.min(beta, best);
+                if (beta <= alpha) break;
+            }
+            return best;
         }
-        
-        square.appendChild(icon);
+    }
+
+    function aiTurn() {
+        if (game.game_over()) return;
+        const depth = parseInt(document.getElementById('difficulty').value);
+        let moves = game.moves();
+        let bestMove = null;
+        let bestVal = -9999;
+
+        moves.forEach(m => {
+            game.move(m);
+            let val = minimax(game, depth - 1, false, -10000, 10000);
+            game.undo();
+            if (val > bestVal) { bestVal = val; bestMove = m; }
+        });
+
+        const mObj = game.move(bestMove);
+        render();
+        showEval(mObj.to, mObj);
+    }
+
+    function showEval(pos, move) {
+        const sq = document.querySelector(`[data-pos='${pos}']`);
+        const icon = document.createElement('div');
+        icon.className = 'eval-icon ' + (move.captured ? 'best' : 'best'); 
+        icon.innerText = move.captured ? '!!' : '★';
+        sq.appendChild(icon);
         setTimeout(() => icon.remove(), 2000);
     }
 
-    function makeAiMove() {
-        if (game.game_over()) return;
-        const moves = game.moves();
-        const move = moves[Math.floor(Math.random() * moves.length)];
-        game.move(move);
-        updateBoard();
-    }
-
-    function renderHighlights() {
-        document.querySelectorAll('.square').forEach(s => s.style.boxShadow = 'none');
-        if (selectedSquare) {
-            const sq = document.querySelector(`[data-pos='${selectedSquare}']`);
-            sq.style.boxShadow = 'inset 0 0 10px yellow';
-        }
-    }
-
-    function resetGame() {
-        game.reset();
-        createBoard();
-    }
-
-    createBoard();
+    function newGame() { game.reset(); init(); }
+    init();
 </script>
 </body>
 </html>
-"""
-
-print(chess_game_code)
